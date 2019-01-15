@@ -16,16 +16,35 @@ ADC_MODE(ADC_VCC);
 // The temp sensor is on D2 (Marked as D4 on D1 mini)
 OneWire oneWire(2);
 DallasTemperature sensors(&oneWire);
+DeviceAddress deviceAddress;
 
-void init_temp_sensor() {
+bool init_temp_sensor() {
   Serial.println("Init temperature sensor");
-  sensors.setWaitForConversion(false);
   sensors.begin();
-  sensors.requestTemperatures();
+
+  if (!sensors.getAddress(deviceAddress, 0)) {
+    Serial.println("Failed to get temperature sensor address");
+    return false;
+  }
+
+  // 12 bits 0.0625 degrees C (750 mSec)
+  if (!sensors.setResolution(deviceAddress, 12)) {
+    Serial.println("Failed to get temperature sensor resolution");
+    return false;
+  }
+
+  sensors.setWaitForConversion(false);
+  if (!sensors.requestTemperaturesByAddress(deviceAddress)) {
+    Serial.println("Failed to request temperature from sensor");
+    return false;
+  }
+
+  return true;
 }
 
 bool wait_for_temperature() {
   Serial.print("Wait for temperature to be ready");
+  // Wait at most 2s
   for (int i=0; i < 200; i++) {
     if (sensors.isConversionComplete()) {
       // Temperature available!
@@ -47,7 +66,7 @@ float read_temperature_celcius() {
   }
   
   Serial.println("Reading temperature");
-  return sensors.getTempCByIndex(0);
+  return sensors.getTempC(deviceAddress);
 }
 
 uint8_t connect_wifi() {
@@ -107,7 +126,10 @@ void setup() {
 
   // First init temp sensor, as it may take a while to read temp
   // and we can do that while we are waiting for WiFi to connect
-  init_temp_sensor();
+  if (!init_temp_sensor()) {
+    Serial.println("Failed to init temp sensor");
+    return;
+  }
 
   uint8_t connect_result = connect_wifi();
   if (connect_result != WL_CONNECTED) {
