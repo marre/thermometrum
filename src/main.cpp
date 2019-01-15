@@ -1,7 +1,7 @@
 #include <Arduino.h>
 
 #include <OneWire.h>
-#include <DS18B20.h>
+#include <DallasTemperature.h>
 
 #include <ESP8266WiFi.h>
 
@@ -15,26 +15,39 @@ ADC_MODE(ADC_VCC);
 
 // The temp sensor is on D2 (Marked as D4 on D1 mini)
 OneWire oneWire(2);
-DS18B20 sensor(&oneWire);
+DallasTemperature sensors(&oneWire);
 
 void init_temp_sensor() {
   Serial.println("Init temperature sensor");
-  sensor.begin();
-  sensor.requestTemperatures();
+  sensors.setWaitForConversion(false);
+  sensors.begin();
+  sensors.requestTemperatures();
 }
 
-void wait_for_temperature() {
+bool wait_for_temperature() {
   Serial.print("Wait for temperature to be ready");
-  while (!sensor.isConversionComplete()) {
+  for (int i=0; i < 200; i++) {
+    if (sensors.isConversionComplete()) {
+      // Temperature available!
+      return true;
+    }
     Serial.print(".");
     delay(10);
   }
-  Serial.println();
+
+  // No temp available
+  return false;
 }
 
 float read_temperature_celcius() {
+  // Wait until sensor is ready
+  if (!wait_for_temperature()) {
+    Serial.println("Timed out waiting for temperature");
+    return DEVICE_DISCONNECTED_C;
+  }
+  
   Serial.println("Reading temperature");
-  return sensor.getTempC();
+  return sensors.getTempCByIndex(0);
 }
 
 uint8_t connect_wifi() {
@@ -103,16 +116,14 @@ void setup() {
     return;
   }
 
-  // Wait until sensor is ready
-  wait_for_temperature();
   float temp_celcius = read_temperature_celcius();
-  if (temp_celcius < 0.0) {
+  if (temp_celcius <= DEVICE_DISCONNECTED_C) {
     // Some error reading temperature
-    // TODO: Kind of useless to have a probe that cannot
-    //       measure negative degrees...
     Serial.println("Failed to read temperature");
     return;
   }
+  Serial.print("Temperature ");
+  Serial.println(temp_celcius);
 
   send_data_to_thingspeak(TS_KEY, temp_celcius, vcc);
 }
