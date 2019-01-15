@@ -37,22 +37,26 @@ float read_temperature_celcius() {
   return sensor.getTempC();
 }
 
-void connect_wifi() {
+uint8_t connect_wifi() {
   // Connect WiFi
-  Serial.printf("Connecting WiFi %s:%s\n", SSID, SSID_PASSWORD);
+  Serial.println("Connecting WiFi");
+  Serial.println(SSID);
+  Serial.println(SSID_PASSWORD);
+
   WiFi.mode(WIFI_STA);
   WiFi.begin(SSID, SSID_PASSWORD);
 
-  Serial.print("Connecting");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(10);
-    Serial.print(".");
-    // TODO: Don't do this forewer...
+  Serial.print("Wait for connection");
+  uint8_t connect_result = WiFi.waitForConnectResult();
+  if (connect_result != WL_CONNECTED) {
+    // Connect failed
+    return connect_result;
   }
-  Serial.println();
 
   Serial.print("Connected, IP address: ");
   Serial.println(WiFi.localIP());
+
+  return WiFi.status();
 }
 
 void deep_sleep_5_minutes() {
@@ -62,7 +66,8 @@ void deep_sleep_5_minutes() {
 
 void send_data_to_thingspeak(String ts_key, float temp_celcius, uint16_t vcc) {
   String temp_celcius_str = String(temp_celcius, 2);
-  Serial.println("Temperature " + temp_celcius_str);
+  Serial.print("Temperature ");
+  Serial.println(temp_celcius_str);
 
   // Build GET URL for posting data to thingspeak
   String url = String("http://api.thingspeak.com/update?api_key=") + ts_key + "&field1=" + temp_celcius_str + "&field2=" + vcc;
@@ -72,7 +77,8 @@ void send_data_to_thingspeak(String ts_key, float temp_celcius, uint16_t vcc) {
   HTTPClient http;
   if (http.begin(url)) {
     int httpCode = http.GET();
-    Serial.printf("[HTTP] GET... code: %d\n", httpCode);
+    Serial.print("HTTP status code ");
+    Serial.println(httpCode);
     http.end();
   }
 }
@@ -90,7 +96,12 @@ void setup() {
   // and we can do that while we are waiting for WiFi to connect
   init_temp_sensor();
 
-  connect_wifi();
+  uint8_t connect_result = connect_wifi();
+  if (connect_result != WL_CONNECTED) {
+    Serial.print("Connect failed : ");
+    Serial.println(connect_result);
+    return;
+  }
 
   // Wait until sensor is ready
   wait_for_temperature();
