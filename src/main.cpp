@@ -96,13 +96,13 @@ void deep_sleep_5_minutes() {
   ESP.deepSleep(5 * 60 * 1000000, WAKE_RF_DEFAULT);  
 }
 
-void send_data_to_thingspeak(String ts_key, float temp_celcius, uint16_t vcc) {
+void send_data_to_thingspeak(String ts_key, float temp_celcius, uint16_t vcc, long duration) {
   String temp_celcius_str = String(temp_celcius, 2);
   Serial.print("Temperature ");
   Serial.println(temp_celcius_str);
 
   // Build GET URL for posting data to thingspeak
-  String url = String("http://api.thingspeak.com/update?api_key=") + ts_key + "&field1=" + temp_celcius_str + "&field2=" + vcc;
+  String url = String("http://api.thingspeak.com/update?api_key=") + ts_key + "&field1=" + temp_celcius_str + "&field2=" + vcc + "&field3=" + duration;
   Serial.println(url);
 
   // And finally send temperature to thingspeak
@@ -119,6 +119,10 @@ void send_data_to_thingspeak(String ts_key, float temp_celcius, uint16_t vcc) {
 void setup() {
   Serial.begin(9600);
   Serial.println();
+
+  unsigned long time_start = millis();
+  Serial.print("Start ");
+  Serial.println(time_start);
 
   uint16_t vcc = ESP.getVcc();
   Serial.print("Voltage ");
@@ -147,7 +151,16 @@ void setup() {
   Serial.print("Temperature ");
   Serial.println(temp_celcius);
 
-  send_data_to_thingspeak(TS_KEY, temp_celcius, vcc);
+  unsigned long time_end = millis();
+  Serial.print("End ");
+  Serial.println(time_end);
+
+  long duration = time_end - time_start;
+
+  Serial.print("Duration ");
+  Serial.println(duration);
+
+  send_data_to_thingspeak(TS_KEY, temp_celcius, vcc, duration);
 }
 
 void loop() {
