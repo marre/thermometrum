@@ -38,6 +38,9 @@ install:
     - pip install -U platformio
     - platformio update
 
+before_script:
+    - cp include/secrets.h.template include/secrets.h    
+
 script:
     - platformio run
 
